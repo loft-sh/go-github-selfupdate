@@ -4,3 +4,5 @@
 /detect-latest-release
 /go-get-release
 /coverage.out
+/test/
+/.idea

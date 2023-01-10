@@ -109,7 +109,7 @@ func findReleaseAndAsset(rels []*github.RepositoryRelease,
 
 	// Find the latest version from the list of releases.
 	// Returned list from GitHub API is in the order of the date when created.
-	//   ref: https://github.com/rhysd/go-github-selfupdate/issues/11
+	//   ref: https://github.com/loft-sh/go-github-selfupdate/issues/11
 	for _, rel := range rels {
 		if a, v, ok := findAssetFromRelease(rel, suffixes, targetVersion, filters); ok {
 			// Note: any version with suffix is less than any version without suffix.
@@ -148,7 +148,13 @@ func (up *Updater) DetectVersion(slug string, version string) (release *Release,
 		return nil, false, fmt.Errorf("Invalid slug format. It should be 'owner/name': %s", slug)
 	}
 
-	rels, res, err := up.api.Repositories.ListReleases(up.apiCtx, repo[0], repo[1], nil)
+	var rel *github.RepositoryRelease
+	var res *github.Response
+	if version == "" {
+		rel, res, err = up.api.Repositories.GetLatestRelease(up.apiCtx, repo[0], repo[1])
+	} else {
+		rel, res, err = up.api.Repositories.GetReleaseByTag(up.apiCtx, repo[0], repo[1], version)
+	}
 	if err != nil {
 		log.Println("API returned an error response:", err)
 		if res != nil && res.StatusCode == 404 {
@@ -159,7 +165,7 @@ func (up *Updater) DetectVersion(slug string, version string) (release *Release,
 		return nil, false, err
 	}
 
-	rel, asset, ver, found := findReleaseAndAsset(rels, version, up.filters)
+	rel, asset, ver, found := findReleaseAndAsset([]*github.RepositoryRelease{rel}, version, up.filters)
 	if !found {
 		return nil, false, nil
 	}

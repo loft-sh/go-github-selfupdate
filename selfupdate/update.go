@@ -70,7 +70,7 @@ func (up *Updater) UpdateTo(rel *Release, cmdPath string) error {
 	}
 	defer src.Close()
 
-	data, err := ioutil.ReadAll(src)
+	data, err := io.ReadAll(src)
 	if err != nil {
 		return fmt.Errorf("Failed reading asset body: %v", err)
 	}
