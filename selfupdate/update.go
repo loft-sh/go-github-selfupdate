@@ -2,7 +2,6 @@ package selfupdate
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/blang/semver"
-	"github.com/google/go-github/v30/github"
 	"github.com/inconshreveable/go-update"
 )
 
@@ -59,32 +57,17 @@ func (up *Updater) downloadDirectlyFromURL(assetURL string) (io.ReadCloser, erro
 // If a redirect occurs, it fallbacks into directly downloading from the redirect URL.
 func (up *Updater) UpdateTo(rel *Release, cmdPath string) error {
 	var client http.Client
-
-	// src in this case, is *not* the asset itself, but the json response of the asset API:
-	// GitHub API docs: https://developer.github.com/v3/repos/releases/#get-a-single-release-asset
 	src, redirectURL, err := up.api.Repositories.DownloadReleaseAsset(up.apiCtx, rel.RepoOwner, rel.RepoName, rel.AssetID, &client)
 	if err != nil {
 		return fmt.Errorf("Failed to call GitHub Releases API for getting an asset(ID: %d) for repository '%s/%s': %s", rel.AssetID, rel.RepoOwner, rel.RepoName, err)
 	}
-
-	// In case we *do not* have a redirect url, we extract the download url from
-	// the json response of up.api.Repositories.DownloadReleaseAsset
-	if redirectURL == "" {
-		// Unmashal the incoming releaseasset response to ReleaseAsset
-		asset := github.ReleaseAsset{}
-		err = json.NewDecoder(src).Decode(&asset)
+	if redirectURL != "" {
+		log.Println("Redirect URL was returned while trying to download a release asset from GitHub API. Falling back to downloading from asset URL directly:", redirectURL)
+		src, err = up.downloadDirectlyFromURL(redirectURL)
 		if err != nil {
 			return err
 		}
-		redirectURL = *asset.BrowserDownloadURL
 	}
-
-	// Then with the result, or with the original redirectURL we directly download the asset
-	src, err = up.downloadDirectlyFromURL(redirectURL)
-	if err != nil {
-		return err
-	}
-
 	defer src.Close()
 
 	data, err := io.ReadAll(src)
